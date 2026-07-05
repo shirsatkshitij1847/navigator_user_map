@@ -3,54 +3,74 @@ const socket = io();
 // Create map
 const map = L.map("map").setView([20.5937, 78.9629], 5);
 
-// OpenStreetMap layer
+// Add OpenStreetMap tiles
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors",
 }).addTo(map);
 
-// Store all markers
+// Store all user markers
 const markers = {};
 
-// Get live location
-if (navigator.geolocation) {
+// Check browser support
+if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser.");
+} else {
 
     navigator.geolocation.watchPosition(
 
         (position) => {
 
-            const { latitude, longitude } = position.coords;
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+
+            console.log("Latitude:", latitude);
+            console.log("Longitude:", longitude);
 
             socket.emit("send-location", {
                 latitude,
-                longitude,
+                longitude
             });
 
         },
 
         (error) => {
+
             console.log(error);
+
+            switch (error.code) {
+
+                case error.PERMISSION_DENIED:
+                    alert("Location permission denied.");
+                    break;
+
+                case error.POSITION_UNAVAILABLE:
+                    alert("Location unavailable.");
+                    break;
+
+                case error.TIMEOUT:
+                    alert("Location request timed out.");
+                    break;
+
+                default:
+                    alert("Unknown location error.");
+            }
+
         },
 
         {
             enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 5000,
+            timeout: 10000,
+            maximumAge: 0
         }
 
     );
 
-} else {
-
-    alert("Geolocation is not supported.");
-
 }
 
-// Receive locations from server
+// Receive live locations
 socket.on("receive-location", (data) => {
 
     const { id, latitude, longitude } = data;
-
-    map.setView([latitude, longitude], 16);
 
     if (markers[id]) {
 
@@ -61,6 +81,8 @@ socket.on("receive-location", (data) => {
         markers[id] = L.marker([latitude, longitude]).addTo(map);
 
     }
+
+    map.setView([latitude, longitude], 16);
 
 });
 
